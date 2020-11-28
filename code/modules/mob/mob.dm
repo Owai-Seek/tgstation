@@ -364,7 +364,7 @@
   *
   * returns 0 if it cannot, 1 if successful
   */
-/mob/proc/equip_to_appropriate_slot(obj/item/W, swap=FALSE)
+/mob/proc/equip_to_appropriate_slot(obj/item/W, swap=FALSE, qdel_on_fail = FALSE)
 	if(!istype(W))
 		return FALSE
 	var/slot_priority = W.slot_equipment_priority
@@ -385,6 +385,8 @@
 		if(equip_to_slot_if_possible(W, slot, FALSE, TRUE, TRUE, FALSE, FALSE, swap)) //qdel_on_fail = FALSE; disable_warning = TRUE; redraw_mob = TRUE;
 			return TRUE
 
+	if(qdel_on_fail)
+		qdel(W)
 	return FALSE
 /**
   * Reset the attached clients perspective (viewpoint)
@@ -925,10 +927,6 @@
 	client.last_turn = world.time + MOB_FACE_DIRECTION_DELAY
 	return TRUE
 
-///This might need a rename but it should replace the can this mob use things check
-/mob/proc/IsAdvancedToolUser()
-	return FALSE
-
 /mob/proc/swap_hand()
 	var/obj/item/held_item = get_active_held_item()
 	if(SEND_SIGNAL(src, COMSIG_MOB_SWAP_HANDS, held_item) & COMPONENT_BLOCK_SWAP)
@@ -1037,7 +1035,7 @@
 		return TRUE
 
 ///Can the mob use Topic to interact with machines
-/mob/proc/canUseTopic(atom/movable/M, be_close=FALSE, no_dexterity=FALSE, no_tk=FALSE)
+/mob/proc/canUseTopic(atom/movable/M, be_close=FALSE, no_dexterity=FALSE, no_tk=FALSE, need_hands = FALSE, floor_okay=FALSE)
 	return
 
 ///Can this mob use storage
@@ -1189,10 +1187,6 @@
 		to_chat(src, "<span class='notice'>You try to read [O], but can't comprehend any of it.</span>")
 		return
 	return TRUE
-
-///Can this mob hold items
-/mob/proc/can_hold_items()
-	return FALSE
 
 /**
   * Get the mob VV dropdown extras

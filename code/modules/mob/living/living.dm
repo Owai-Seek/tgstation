@@ -961,7 +961,8 @@
 	who.visible_message("<span class='warning'>[src] tries to remove [who]'s [what.name].</span>", \
 					"<span class='userdanger'>[src] tries to remove your [what.name].</span>", null, null, src)
 	to_chat(src, "<span class='danger'>You try to remove [who]'s [what.name]...</span>")
-	log_combat(src, who, "started stripping [what] off")
+	who.log_message("[key_name(who)] is being stripped of [what] by [key_name(src)]", LOG_ATTACK, color="red")
+	log_message("[key_name(who)] is being stripped of [what] by [key_name(src)]", LOG_ATTACK, color="red", log_globally=FALSE)
 	what.add_fingerprint(src)
 	if(do_mob(src, who, what.strip_delay))
 		if(what && Adjacent(who))
@@ -969,10 +970,12 @@
 				var/list/L = where
 				if(what == who.get_item_for_held_index(L[2]))
 					if(what.doStrip(src, who))
-						log_combat(src, who, "stripped [what] off")
+						who.log_message("[key_name(who)] has been stripped of [what] by [key_name(src)]", LOG_ATTACK, color="red")
+						log_message("[key_name(who)] has been stripped of [what] by [key_name(src)]", LOG_ATTACK, color="red", log_globally=FALSE)
 			if(what == who.get_item_by_slot(where))
 				if(what.doStrip(src, who))
-					log_combat(src, who, "stripped [what] off")
+					who.log_message("[key_name(who)] has been stripped of [what] by [key_name(src)]", LOG_ATTACK, color="red")
+					log_message("[key_name(who)] has been stripped of [what] by [key_name(src)]", LOG_ATTACK, color="red", log_globally=FALSE)
 
 	if(Adjacent(who)) //update inventory window
 		who.show_inv(src)
@@ -1010,6 +1013,8 @@
 				who.visible_message("<span class='notice'>[src] tries to put [what] on [who].</span>", \
 							"<span class='notice'>[src] tries to put [what] on you.</span>", null, null, src)
 		to_chat(src, "<span class='notice'>You try to put [what] on [who]...</span>")
+		who.log_message("[key_name(who)] is having [what] put on them by [key_name(src)]", LOG_ATTACK, color="red")
+		log_message("[key_name(who)] is having [what] put on them by [key_name(src)]", LOG_ATTACK, color="red", log_globally=FALSE)
 		if(do_mob(src, who, what.equip_delay_other))
 			if(what && Adjacent(who) && what.mob_can_equip(who, src, final_where, TRUE, TRUE))
 				if(temporarilyRemoveItemFromInventory(what))
@@ -1018,6 +1023,8 @@
 							what.forceMove(get_turf(who))
 					else
 						who.equip_to_slot(what, where, TRUE)
+					who.log_message("[key_name(who)] had [what] put on them by [key_name(src)]", LOG_ATTACK, color="red")
+					log_message("[key_name(who)] had [what] put on them by [key_name(src)]", LOG_ATTACK, color="red", log_globally=FALSE)
 
 		if(Adjacent(who)) //update inventory window
 			who.show_inv(src)
@@ -1086,14 +1093,25 @@
 /mob/living/proc/harvest(mob/living/user) //used for extra objects etc. in butchering
 	return
 
-/mob/living/canUseTopic(atom/movable/M, be_close=FALSE, no_dexterity=FALSE, no_tk=FALSE)
-	if(incapacitated())
+/mob/living/can_hold_items(obj/item/I)
+	return usable_hands && ..()
+
+/mob/living/canUseTopic(atom/movable/M, be_close=FALSE, no_dexterity=FALSE, no_tk=FALSE, need_hands = FALSE, floor_okay=FALSE)
+	if(!(mobility_flags & MOBILITY_UI) && !floor_okay)
 		to_chat(src, "<span class='warning'>You can't do that right now!</span>")
 		return FALSE
-	if(be_close && !in_range(M, src))
-		to_chat(src, "<span class='warning'>You are too far away!</span>")
+	if(be_close && !Adjacent(M) && (M.loc != src))
+		if(no_tk)
+			to_chat(src, "<span class='warning'>You are too far away!</span>")
+			return FALSE
+		var/datum/dna/D = has_dna()
+		if(!D || !D.check_mutation(TK) || !tkMaxRangeCheck(src, M))
+			to_chat(src, "<span class='warning'>You are too far away!</span>")
+			return FALSE
+	if(need_hands && !can_hold_items(isitem(M) ? M : null)) //almost redundant if it weren't for mobs,
+		to_chat(src, "<span class='warning'>You don't have the physical ability to do this!</span>")
 		return FALSE
-	if(!no_dexterity)
+	if(!no_dexterity && !ISADVANCEDTOOLUSER(src))
 		to_chat(src, "<span class='warning'>You don't have the dexterity to do this!</span>")
 		return FALSE
 	return TRUE
@@ -1102,7 +1120,7 @@
 	if(G.trigger_guard == TRIGGER_GUARD_NONE)
 		to_chat(src, "<span class='warning'>You are unable to fire this!</span>")
 		return FALSE
-	if(G.trigger_guard != TRIGGER_GUARD_ALLOW_ALL && !IsAdvancedToolUser())
+	if(G.trigger_guard != TRIGGER_GUARD_ALLOW_ALL && !ISADVANCEDTOOLUSER(src))
 		to_chat(src, "<span class='warning'>You try to fire [G], but can't use the trigger!</span>")
 		return FALSE
 	return TRUE
