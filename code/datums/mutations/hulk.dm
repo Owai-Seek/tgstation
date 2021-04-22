@@ -27,12 +27,12 @@
 	RegisterSignal(owner, COMSIG_MOB_SAY, .proc/handle_speech)
 	RegisterSignal(owner, COMSIG_MOB_CLICKON, .proc/check_swing)
 
-/datum/mutation/human/hulk/proc/on_attack_hand(mob/living/carbon/human/source, atom/target, proximity)
+/datum/mutation/human/hulk/proc/on_attack_hand(mob/living/carbon/human/source, atom/target, proximity, modifiers)
 	SIGNAL_HANDLER
 
 	if(!proximity)
 		return
-	if(source.a_intent != INTENT_HARM)
+	if(!source.combat_mode || LAZYACCESS(modifiers, RIGHT_CLICK))
 		return
 	if(target.attack_hulk(owner))
 		if(world.time > (last_scream + scream_delay))
@@ -65,7 +65,7 @@
 		if(35 to 41)
 			arm.force_wound_upwards(/datum/wound/blunt/moderate)
 
-/datum/mutation/human/hulk/on_life()
+/datum/mutation/human/hulk/on_life(delta_time, times_fired)
 	if(owner.health < 0)
 		on_losing(owner)
 		to_chat(owner, "<span class='danger'>You suddenly feel very weak.</span>")
@@ -102,15 +102,15 @@
 
 	/// Basically, we only proceed if we're in throw mode with a tailed carbon in our grasp with at least a neck grab and we're not restrained in some way
 	var/list/modifiers = params2list(params)
-	if(modifiers["alt"] || modifiers["shift"] || modifiers["ctrl"] || modifiers["middle"])
+	if(LAZYACCESS(modifiers, ALT_CLICK) || LAZYACCESS(modifiers, SHIFT_CLICK) || LAZYACCESS(modifiers, CTRL_CLICK) || LAZYACCESS(modifiers, MIDDLE_CLICK))
 		return
-	if(!user.in_throw_mode || user.get_active_held_item() || user.zone_selected != BODY_ZONE_PRECISE_GROIN)
+	if(!user.throw_mode || user.get_active_held_item() || user.zone_selected != BODY_ZONE_PRECISE_GROIN)
 		return
 	if(user.grab_state < GRAB_NECK || !iscarbon(user.pulling) || user.buckled || user.incapacitated())
 		return
 
 	var/mob/living/carbon/possible_throwable = user.pulling
-	if(!possible_throwable.getorganslot(ORGAN_SLOT_TAIL) && !ismonkey(possible_throwable))
+	if(!possible_throwable.getorganslot(ORGAN_SLOT_TAIL))
 		return
 
 	if(ishuman(possible_throwable))
@@ -151,7 +151,13 @@
 	yeeted_person.emote("scream")
 	swing_loop(the_hulk, yeeted_person, 0, original_dir)
 
-/// For each step of the swinging, with the delay getting shorter along the way. Checks to see we still have them in our grasp at each step.
+/**
+ * Does the animations for the hulk swing loop
+ *
+ * This code is based in part on the wrestling swing code ported from goon, see [code/datums/martial/wrestling.dm]
+ * credit to: cogwerks, pistoleer, spyguy, angriestibm, marquesas, and stuntwaffle.
+ * For each step of the swinging, with the delay getting shorter along the way. Checks to see we still have them in our grasp at each step.
+ */
 /datum/mutation/human/hulk/proc/swing_loop(mob/living/carbon/human/the_hulk, mob/living/carbon/yeeted_person, step, original_dir)
 	if(!yeeted_person || !the_hulk || the_hulk.incapacitated())
 		return

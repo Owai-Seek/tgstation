@@ -29,9 +29,9 @@
 
 	QDEL_NULL(species)
 
-	mutations.Cut()					//This only references mutations, just dereference.
-	temporary_mutations.Cut()		//^
-	previous.Cut()					//^
+	mutations.Cut() //This only references mutations, just dereference.
+	temporary_mutations.Cut() //^
+	previous.Cut() //^
 
 	return ..()
 
@@ -68,6 +68,7 @@
 		mutation_type = HM.type
 	if(get_mutation(mutation_type))
 		return
+	SEND_SIGNAL(holder, COMSIG_CARBON_GAIN_MUTATION, mutation_type, class)
 	return force_give(new mutation_type (class, time, copymut = mutation))
 
 /datum/dna/proc/remove_mutation(mutation_type)
@@ -128,11 +129,7 @@
 	mutation_index.Cut()
 	default_mutation_genes.Cut()
 	shuffle_inplace(mutations_temp)
-	if(ismonkey(holder))
-		mutations |= new RACEMUT(MUT_NORMAL)
-		mutation_index[RACEMUT] = GET_SEQUENCE(RACEMUT)
-	else
-		mutation_index[RACEMUT] = create_sequence(RACEMUT, FALSE)
+	mutation_index[RACEMUT] = create_sequence(RACEMUT, FALSE)
 	default_mutation_genes[RACEMUT] = mutation_index[RACEMUT]
 	for(var/i in 2 to DNA_MUTATION_BLOCKS)
 		var/datum/mutation/human/M = mutations_temp[i]
@@ -407,7 +404,7 @@
 	facial_hairstyle = GLOB.facial_hairstyles_list[deconstruct_block(getblock(structure, DNA_FACIAL_HAIRSTYLE_BLOCK), GLOB.facial_hairstyles_list.len)]
 	hairstyle = GLOB.hairstyles_list[deconstruct_block(getblock(structure, DNA_HAIRSTYLE_BLOCK), GLOB.hairstyles_list.len)]
 	if(icon_update)
-		update_body()
+		dna.species.handle_body(src) // We want 'update_body_parts()' to be called only if mutcolor_update is TRUE, so no 'update_body()' here.
 		update_hair()
 		if(mutcolor_update)
 			update_body_parts()
@@ -423,8 +420,7 @@
 		return
 
 	for(var/mutation in dna.mutation_index)
-		if(ismob(dna.check_block(mutation)))
-			return //we got monkeyized/humanized, this mob will be deleted, no need to continue.
+		dna.check_block(mutation)
 
 	update_mutations_overlay()
 

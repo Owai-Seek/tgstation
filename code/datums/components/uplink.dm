@@ -29,7 +29,7 @@
 
 	var/list/previous_attempts
 
-/datum/component/uplink/Initialize(_owner, _lockable = TRUE, _enabled = FALSE, datum/game_mode/_gamemode, starting_tc = 20)
+/datum/component/uplink/Initialize(_owner, _lockable = TRUE, _enabled = FALSE, datum/game_mode/_gamemode, starting_tc = TELECRYSTALS_DEFAULT)
 	if(!isitem(parent))
 		return COMPONENT_INCOMPATIBLE
 
@@ -49,7 +49,7 @@
 	else if(istype(parent, /obj/item/pen))
 		RegisterSignal(parent, COMSIG_PEN_ROTATED, .proc/pen_rotation)
 
-	uplink_items = get_uplink_items(_gamemode, TRUE, allow_restricted)
+	update_items()
 
 	if(_owner)
 		owner = _owner
@@ -82,22 +82,26 @@
 	purchase_log = null
 	return ..()
 
+/datum/component/uplink/proc/update_items()
+	uplink_items = get_uplink_items(gamemode, TRUE, allow_restricted)
+
 /datum/component/uplink/proc/LoadTC(mob/user, obj/item/stack/telecrystal/TC, silent = FALSE)
 	if(!silent)
 		to_chat(user, "<span class='notice'>You slot [TC] into [parent] and charge its internal uplink.</span>")
 	var/amt = TC.amount
 	telecrystals += amt
 	TC.use(amt)
+	log_uplink("[key_name(user)] loaded [amt] telecrystals into [parent]'s uplink")
 
 /datum/component/uplink/proc/set_gamemode(_gamemode)
 	gamemode = _gamemode
-	uplink_items = get_uplink_items(gamemode, TRUE, allow_restricted)
+	update_items()
 
 /datum/component/uplink/proc/OnAttackBy(datum/source, obj/item/I, mob/user)
 	SIGNAL_HANDLER
 
 	if(!active)
-		return	//no hitting everyone/everything just to try to slot tcs in!
+		return //no hitting everyone/everything just to try to slot tcs in!
 	if(istype(I, /obj/item/stack/telecrystal))
 		LoadTC(user, I)
 	for(var/category in uplink_items)
@@ -107,6 +111,7 @@
 			var/cost = UI.refund_amount || UI.cost
 			if(I.type == path && UI.refundable && I.check_uplink_validity())
 				telecrystals += cost
+				log_uplink("[key_name(user)] refunded [UI] for [cost] telecrystals using [parent]'s uplink")
 				if(purchase_log)
 					purchase_log.total_spent -= cost
 				to_chat(user, "<span class='notice'>[I] refunded.</span>")
@@ -119,6 +124,7 @@
 	if(locked)
 		return
 	active = TRUE
+	update_items()
 	if(user)
 		INVOKE_ASYNC(src, .proc/ui_interact, user)
 	// an unlocked uplink blocks also opening the PDA or headset menu
@@ -329,7 +335,7 @@
 	if(istype(parent,/obj/item/pda))
 		return "[rand(100,999)] [pick(GLOB.phonetic_alphabet)]"
 	else if(istype(parent,/obj/item/radio))
-		return sanitize_frequency(rand(MIN_FREQ, MAX_FREQ))
+		return return_unused_frequency()
 	else if(istype(parent,/obj/item/pen))
 		var/list/L = list()
 		for(var/i in 1 to PEN_ROTATIONS)
